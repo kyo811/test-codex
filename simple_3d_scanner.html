@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>3D座標掃描系統</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .scan-section {
+            text-align: center;
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn.stop {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
+        }
+
+        .btn.clear {
+            background: linear-gradient(45deg, #FF9800, #F57C00);
+            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+        }
+
+        .coordinates-display {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .coords-3d {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .coords-3d h4 {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .coords-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .coord-3d {
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .coord-3d .label {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 4px;
+        }
+
+        .coord-3d .value {
+            font-size: 18px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+
+        .form-section {
+            margin-top: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .scanned-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .scanned-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin: 4px 0;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .remove-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .remove-btn:hover {
+            background: #c82333;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+            
+            .coords-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 3D座標掃描系統</h1>
+            <p>簡單直覺的QR碼掃描與3D座標記錄</p>
+        </div>
+
+        <div class="card">
+            <div class="scan-section">
+                <h2>📱 QR碼掃描</h2>
+                <div class="camera-container">
+                    <video id="video" autoplay muted playsinline></video>
+                    <canvas id="overlay" class="overlay"></canvas>
+                </div>
+                
+                <div class="controls">
+                    <button id="startScan" class="btn">開始掃描</button>
+                    <button id="stopScan" class="btn stop" disabled>停止掃描</button>
+                    <button id="clearAll" class="btn clear">清除所有</button>
+                </div>
+
+                <div id="status" class="status" style="display: none;"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="coordinates-display">
+                <h3>📍 3D座標記錄</h3>
+                <div id="coordinatesList">
+                    <p style="text-align: center; color: #999;">尚未掃描任何QR碼</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="form-section">
+                <h2>📝 記錄資料</h2>
+                <form id="recordForm">
+                    <div class="form-group">
+                        <label for="productName">產品名稱</label>
+                        <input type="text" id="productName" required placeholder="請輸入產品名稱">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="batchNumber">批號</label>
+                        <input type="text" id="batchNumber" required placeholder="請輸入批號">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="staffName">操作人員</label>
+                        <input type="text" id="staffName" required placeholder="請輸入操作人員姓名">
+                    </div>
+
+                    <div class="form-group">
+                        <label>已掃描的QR碼</label>
+                        <div id="scannedList" class="scanned-list">
+                            <p style="text-align: center; color: #999;">尚未掃描任何QR碼</p>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">
+                        提交記錄
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+    <script>
+        // 全域變數
+        let qrScanner = null;
+        let scannedQRs = new Set();
+        let coordinates3D = new Map(); // 儲存3D座標
+        let scanCounter = 0;
+
+        // 3D座標記錄系統
+        class Coordinate3D {
+            constructor(x, y, z, timestamp = Date.now()) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+                this.timestamp = timestamp;
+                this.id = `coord_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
+            }
+
+            getDistance() {
+                return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+            }
+
+            toString() {
+                return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)}, ${this.z.toFixed(3)})`;
+            }
+        }
+
+        // 生成3D座標（模擬真實3D定位）
+        function generate3DCoordinates(qrCode) {
+            // 模擬3D座標生成
+            const baseX = Math.random() * 10 - 5; // -5 到 5
+            const baseY = Math.random() * 10 - 5;
+            const baseZ = Math.random() * 5 + 1; // 1 到 6
+            
+            // 添加一些基於QR碼的變化
+            const hash = qrCode.split('').reduce((a, b) => {
+                a = ((a << 5) - a) + b.charCodeAt(0);
+                return a & a;
+            }, 0);
+            
+            const variation = (hash % 100) / 1000; // 小變化
+            
+            return new Coordinate3D(
+                baseX + variation,
+                baseY + variation,
+                baseZ + variation
+            );
+        }
+
+        // 顯示狀態
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            statusEl.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // 啟動掃描
+        async function startScan() {
+            try {
+                const video = document.getElementById('video');
+                
+                if (typeof QrScanner === 'undefined') {
+                    showStatus('QR掃描器載入失敗', 'error');
+                    return;
+                }
+
+                if (qrScanner) {
+                    qrScanner.stop();
+                    qrScanner.destroy();
+                }
+
+                qrScanner = new QrScanner(
+                    video,
+                    result => handleQRResult(result),
+                    {
+                        onDecodeError: (error) => {
+                            // 靜默處理解碼錯誤
+                        },
+                        highlightScanRegion: false,
+                        highlightCodeOutline: true,
+                        preferredCamera: 'environment',
+                        maxScansPerSecond: 30
+                    }
+                );
+
+                await qrScanner.start();
+                
+                document.getElementById('startScan').disabled = true;
+                document.getElementById('stopScan').disabled = false;
+                
+                showStatus('掃描器已啟動，請將QR碼對準鏡頭', 'success');
+                
+            } catch (error) {
+                console.error('啟動掃描器失敗:', error);
+                showStatus('無法啟動掃描器，請確認相機權限', 'error');
+            }
+        }
+
+        // 停止掃描
+        function stopScan() {
+            if (qrScanner) {
+                qrScanner.stop();
+                qrScanner.destroy();
+                qrScanner = null;
+            }
+            
+            document.getElementById('startScan').disabled = false;
+            document.getElementById('stopScan').disabled = true;
+            
+            showStatus('掃描器已停止', 'info');
+        }
+
+        // 處理QR掃描結果
+        function handleQRResult(result) {
+            const qrText = result.data;
+            
+            // 驗證QR碼格式
+            const jerossePattern = /^https:\/\/jerosse\.com\.tw\/(\d+)$/;
+            const match = qrText.match(jerossePattern);
+            
+            if (!match) {
+                return; // 靜默忽略無效QR碼
+            }
+            
+            const qrNumber = match[1];
+            
+            // 檢查是否已掃描
+            if (scannedQRs.has(qrNumber)) {
+                return;
+            }
+
+            // 記錄QR碼
+            scannedQRs.add(qrNumber);
+            scanCounter++;
+
+            // 生成3D座標
+            const coord3D = generate3DCoordinates(qrNumber);
+            coordinates3D.set(qrNumber, coord3D);
+
+            // 更新顯示
+            updateCoordinatesDisplay();
+            updateScannedList();
+            
+            // 震動提示
+            if (navigator.vibrate) {
+                navigator.vibrate(100);
+            }
+
+            showStatus(`已掃描QR碼 ${qrNumber}，3D座標已記錄`, 'success');
+        }
+
+        // 更新3D座標顯示
+        function updateCoordinatesDisplay() {
+            const listEl = document.getElementById('coordinatesList');
+            
+            if (coordinates3D.size === 0) {
+                listEl.innerHTML = '<p style="text-align: center; color: #999;">尚未掃描任何QR碼</p>';
+                return;
+            }
+
+            let html = '';
+            coordinates3D.forEach((coord, qrCode) => {
+                html += `
+                    <div class="coords-3d">
+                        <h4>QR碼: ${qrCode}</h4>
+                        <div class="coords-grid">
+                            <div class="coord-3d">
+                                <div class="label">X座標</div>
+                                <div class="value">${coord.x.toFixed(3)}</div>
+                            </div>
+                            <div class="coord-3d">
+                                <div class="label">Y座標</div>
+                                <div class="value">${coord.y.toFixed(3)}</div>
+                            </div>
+                            <div class="coord-3d">
+                                <div class="label">Z座標</div>
+                                <div class="value">${coord.z.toFixed(3)}</div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 10px; font-size: 14px; opacity: 0.8;">
+                            距離: ${coord.getDistance().toFixed(3)} 單位
+                        </div>
+                    </div>
+                `;
+            });
+
+            listEl.innerHTML = html;
+        }
+
+        // 更新掃描列表
+        function updateScannedList() {
+            const listEl = document.getElementById('scannedList');
+            
+            if (scannedQRs.size === 0) {
+                listEl.innerHTML = '<p style="text-align: center; color: #999;">尚未掃描任何QR碼</p>';
+                return;
+            }
+
+            let html = '';
+            Array.from(scannedQRs).forEach((qrCode, index) => {
+                html += `
+                    <div class="scanned-item">
+                        <span>${index + 1}. ${qrCode}</span>
+                        <button class="remove-btn" onclick="removeQR('${qrCode}')">×</button>
+                    </div>
+                `;
+            });
+
+            listEl.innerHTML = html;
+        }
+
+        // 移除QR碼
+        function removeQR(qrCode) {
+            scannedQRs.delete(qrCode);
+            coordinates3D.delete(qrCode);
+            updateCoordinatesDisplay();
+            updateScannedList();
+            showStatus(`已移除QR碼 ${qrCode}`, 'info');
+        }
+
+        // 清除所有
+        function clearAll() {
+            scannedQRs.clear();
+            coordinates3D.clear();
+            scanCounter = 0;
+            updateCoordinatesDisplay();
+            updateScannedList();
+            showStatus('已清除所有記錄', 'info');
+        }
+
+        // 處理表單提交
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            
+            if (scannedQRs.size === 0) {
+                showStatus('請先掃描至少一個QR碼', 'error');
+                return;
+            }
+
+            const productName = document.getElementById('productName').value;
+            const batchNumber = document.getElementById('batchNumber').value;
+            const staffName = document.getElementById('staffName').value;
+
+            if (!productName || !batchNumber || !staffName) {
+                showStatus('請填寫所有必填欄位', 'error');
+                return;
+            }
+
+            // 準備記錄資料
+            const records = Array.from(scannedQRs).map(qrCode => {
+                const coord = coordinates3D.get(qrCode);
+                return {
+                    qrCode: qrCode,
+                    productName: productName,
+                    batchNumber: batchNumber,
+                    staffName: staffName,
+                    coordinates3D: coord ? {
+                        x: coord.x,
+                        y: coord.y,
+                        z: coord.z,
+                        distance: coord.getDistance()
+                    } : null,
+                    timestamp: new Date().toISOString()
+                };
+            });
+
+            // 顯示提交結果
+            console.log('提交記錄:', records);
+            showStatus(`已準備提交 ${records.length} 筆記錄`, 'success');
+            
+            // 清空表單
+            document.getElementById('recordForm').reset();
+            clearAll();
+        }
+
+        // 事件綁定
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('startScan').addEventListener('click', startScan);
+            document.getElementById('stopScan').addEventListener('click', stopScan);
+            document.getElementById('clearAll').addEventListener('click', clearAll);
+            document.getElementById('recordForm').addEventListener('submit', handleFormSubmit);
+        });
+    </script>
+</body>
+</html>
